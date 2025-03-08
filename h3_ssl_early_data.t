@@ -80,13 +80,13 @@ my $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-session'}, '.', 'new session');
 
-local $TODO = 'no TLSv1.3 sessions in LibreSSL' if $t->has_module('LibreSSL');
-
 my $psk_list = $s->{psk_list};
 
 $s = Test::Nginx::HTTP3->new(8980, psk_list => $psk_list, early_data => {});
 
 TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL');
 local $TODO = 'no 0-RTT in OpenSSL compat layer'
 	unless $t->has_module('OpenSSL [.0-9]+\+quic')
 	or $t->has_module('BoringSSL')
@@ -99,9 +99,16 @@ is($frame->{headers}->{'x-early'}, '1', 'reused session is early');
 
 }
 
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL');
+
 $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-session'}, 'r', 'reused session 1rtt');
+
+}
+
 is($frame->{headers}->{'x-early'}, undef, 'reused session not early');
 
 ###############################################################################
