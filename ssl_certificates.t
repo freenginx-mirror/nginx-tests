@@ -96,7 +96,9 @@ $t->run()->plan(2);
 
 TODO: {
 local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
-	if $t->has_module('LibreSSL') && test_tls13();
+	if $t->has_module('LibreSSL')
+	&& !$t->has_feature('libressl:4.0.0')
+	&& test_tls13();
 
 like(cert('RSA'), qr/CN=rsa/, 'ssl cert RSA');
 

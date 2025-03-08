@@ -298,6 +298,7 @@ ok(!staple(8449, 'ECDSA'), 'ocsp error');
 TODO: {
 local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
 	if $t->has_module('LibreSSL')
+	&& !$t->has_feature('libressl:4.0.0')
 	&& !Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER")
 	&& test_tls13();
 
