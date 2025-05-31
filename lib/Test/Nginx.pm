@@ -89,7 +89,7 @@ sub DESTROY {
 	}
 
 	if (Test::More->builder->expected_tests && $ENV{TEST_NGINX_VALGRIND}) {
-		my $errors = $self->grep_file('valgrind.log', /^==\d+== .+/m);
+		my $errors = $self->grep_file('valgrind.log', qr/^==\d+== .+/m);
 		Test::More::is($errors, '', 'no valgrind errors');
 	}
 
