@@ -120,19 +120,18 @@ is($r{'data'}, '1', 'upload - one byte');
 
 }
 
-# Five chunks are split with four 1s delays:
-# the first four chunks are quarters of test string
-# and the fifth one is some extra data from backend.
+# reading 1000+ byte response with proxy_download_rate 250
+# should take at least 3 seconds
 
 %r = response($str, peer =>  '127.0.0.1:' . port(8085));
 my $diff = time() - $r{'time'};
-cmp_ok($diff, '>=', 4, 'download - time');
+cmp_ok($diff, '>=', 3, 'download - time');
 is($r{'data'}, $str, 'download - data');
 
 my $time = time();
 %r = response($str . 'close', peer => '127.0.0.1:' . port(8086));
 $diff = time() - $time;
-cmp_ok($diff, '>=', 4, 'upload - time');
+cmp_ok($diff, '>=', 3, 'upload - time');
 is($r{'data'}, $str . 'close', 'upload - data');
 
 ###############################################################################

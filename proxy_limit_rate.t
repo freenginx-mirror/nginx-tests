@@ -78,7 +78,8 @@ my $r = http_get('/');
 my ($t1) = $r =~ /X-Msec: (\d+)/;
 my $diff = time() - $t1;
 
-# four chunks are split with three 1s delays
+# reading 40000 byte response with proxy_limit_rate 20000
+# should take at least 1 second
 
 cmp_ok($diff, '>=', 1, 'proxy_limit_rate');
 like($r, qr/^(XXXXXXXXXX){4000}\x0d?\x0a?$/m, 'response body');
