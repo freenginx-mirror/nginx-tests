@@ -114,6 +114,13 @@ sub read {
 	while (IO::Select->new($s)->can_read($extra{read_timeout} || 8)) {
 		my $n = $s->sysread($buf, 1024);
 		next if !defined $n && $!{EWOULDBLOCK};
+
+		# IO::Socket::SSL 2.091 to 2.094 fails to clear buffer on EOF
+		# (https://github.com/noxxi/p5-io-socket-ssl/issues/171);
+		# as a workaround, we set it explicitly to an empty string
+
+		$buf = '' if defined $n && $n == 0;
+
 		last;
 	}
 
