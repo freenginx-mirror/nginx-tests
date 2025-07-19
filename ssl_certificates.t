@@ -99,6 +99,10 @@ local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
 	if $t->has_module('LibreSSL')
 	&& !$t->has_feature('libressl:4.0.0')
 	&& test_tls13();
+local $TODO = 'no TLSv1.3 sigalgs in Net::SSLeay (LibreSSL)'
+	if Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER")
+	&& $t->has_module('LibreSSL')
+	&& test_tls13();
 
 like(cert('RSA'), qr/CN=rsa/, 'ssl cert RSA');
 
