@@ -22,7 +22,7 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(37);
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(74);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -52,146 +52,272 @@ $t->run();
 
 ###############################################################################
 
-is(http_host_header('www.abcd-ef.g02.xyz'), 'www.abcd-ef.g02.xyz',
-	'domain w/o port (host header)');
-is(http_host_header('abcd-ef.g02.xyz:' . port(8080)), 'abcd-ef.g02.xyz',
-	'domain w/port (host header)');
+# host
+# host:port
+# host.
+# host.:port
+# HOST
+# HOST:port
+# host09
+# ho-st
+# _host
 
-is(http_absolute_path('abcd-ef.g02.xyz'), 'abcd-ef.g02.xyz',
-	'domain w/o port (absolute request)');
-is(http_absolute_path('www.abcd-ef.g02.xyz:10'), 'www.abcd-ef.g02.xyz',
-	'domain w/port (absolute request)');
+is(hh('example.com'), 'example.com', 'host');
+is(rl('example.com'), 'example.com', 'host in request line');
 
+is(hh('example.com:80'), 'example.com', 'host:port');
+is(rl('example.com:80'), 'example.com', 'host:port in request line');
 
-is(http_host_header('www.abcd-ef.g02.xyz.'), 'www.abcd-ef.g02.xyz',
-	'domain w/ ending dot w/o port (host header)');
+is(hh('example.com.'), 'example.com', 'host with dot');
+is(rl('example.com.'), 'example.com', 'host with dot in request line');
 
-is(http_host_header('abcd-ef.g02.xyz.:88'), 'abcd-ef.g02.xyz',
-	'domain w/ ending dot w/port (host header)');
+is(hh('example.com.:80'), 'example.com', 'host:port with dot');
+is(rl('example.com.:80'), 'example.com', 'host:port with dot in request line');
 
-is(http_absolute_path('www.abcd-ef.g02.xyz.'), 'www.abcd-ef.g02.xyz',
-	'domain w/ ending dot w/o port (absolute request)');
-is(http_absolute_path('abcd-ef.g02.xyz.:2'), 'abcd-ef.g02.xyz',
-	'domain w/ ending dot w/port (absolute request)');
+is(hh('EXAMPLE.com'), 'example.com', 'host with uppercase');
+is(rl('EXAMPLE.com'), 'example.com', 'host with uppercase in request line');
 
+is(hh('EXAMPLE.com:80'), 'example.com', 'host:port with uppercase');
+is(rl('EXAMPLE.com:80'), 'example.com',
+	'host:port with uppercase in request line');
 
-is(http_absolute_path('AbC-d93.0.34ZhGt-s.nk.Ru'), 'abc-d93.0.34zhgt-s.nk.ru',
-	'mixed case domain w/o port (absolute request)');
-is(http_host_header('AbC-d93.0.34ZhGt-s.nk.Ru:88'), 'abc-d93.0.34zhgt-s.nk.ru',
-	'mixed case domain w/port (host header)');
+is(hh('foo09.example.com'), 'foo09.example.com', 'host with digits');
+is(rl('foo09.example.com'), 'foo09.example.com',
+	'host with digits in request line');
 
+is(hh('foo-bar.example.com'), 'foo-bar.example.com', 'host with dash');
+is(rl('foo-bar.example.com'), 'foo-bar.example.com',
+	'host with dash in request line');
 
-is(http_host_header('123.40.56.78'), '123.40.56.78',
-	'ipv4 w/o port (host header)');
-is(http_host_header('123.49.0.78:987'), '123.49.0.78',
-	'ipv4 w/port (host header)');
+is(hh('_foo.example.com'), '_foo.example.com', 'host with underscore');
 
-is(http_absolute_path('123.49.0.78'), '123.49.0.78',
-	'ipv4 w/o port (absolute request)');
-is(http_absolute_path('123.40.56.78:123'), '123.40.56.78',
-	'ipv4 w/port (absolute request)');
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
 
-is(http_host_header('[abcd::ef98:0:7654:321]'), '[abcd::ef98:0:7654:321]',
-	'ipv6 literal w/o port (host header)');
-is(http_host_header('[abcd::ef98:0:7654:321]:80'), '[abcd::ef98:0:7654:321]',
-	'ipv6 literal w/port (host header)');
+is(rl('_foo.example.com'), '_foo.example.com',
+	'host with underscore in request line');
 
-is(http_absolute_path('[abcd::ef98:0:7654:321]'), '[abcd::ef98:0:7654:321]',
-	'ipv6 literal w/o port (absolute request)');
-is(http_absolute_path('[abcd::ef98:0:7654:321]:5'), '[abcd::ef98:0:7654:321]',
-	'ipv6 literal w/port (absolute request)');
+}
 
-is(http_host_header('[::ffff:12.30.67.89]'), '[::ffff:12.30.67.89]',
-	'ipv4-mapped ipv6 w/o port (host header)');
-is(http_host_header('[::123.45.67.89]:4321'), '[::123.45.67.89]',
-	'ipv4-mapped ipv6 w/port (host header)');
+# all characters permitted by RFC 3986
+# (unreserved, pct-encoded, sub-delims)
 
-is(http_absolute_path('[::123.45.67.89]'), '[::123.45.67.89]',
-	'ipv4-mapped ipv6 w/o port (absolute request)');
-is(http_absolute_path('[::ffff:12.30.67.89]:4321'), '[::ffff:12.30.67.89]',
-	'ipv4-mapped ipv6 w/port (absolute request)');
+is(hh(q{-._~!$&'()*+,;=%25.example.com}), q{-._~!$&'()*+,;=%25.example.com},
+	'host with sub-delims');
 
-like(http_host_header('example.com/\:552', 1), qr/ 400 /,
-	'domain w/ path separators (host header)');
-like(http_absolute_path('\e/xample.com', 1), qr/ 400 /,
-	'domain w/ path separators (absolute request)');
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
 
-like(http_host_header('..examp-LE.com', 1), qr/ 400 /,
-	'domain w/ double dot (host header)');
-like(http_absolute_path('com.exa-m.45..:', 1), qr/ 400 /,
-	'domain w/ double dot (absolute request)');
+is(rl(q{-._~!$&'()*+,;=%25.example.com}), q{-._~!$&'()*+,;=%25.example.com},
+	'host with sub-delims in request line');
 
+}
 
-like(http_host_header('[abcd::e\f98:0/:7654:321]', 1), qr/ 400 /,
-	'ipv6 literal w/ path separators (host header)');
-like(http_absolute_path('[abcd\::ef98:0:7654:321/]:12', 1), qr/ 400 /,
-	'ipv6 literal w/ path separators (absolute request)');
+# ip
+# ip:port
+# ipv6
+# ipv6:port
+# ipv6-v4mapped
+# ipv6-v4mapped:port
 
-like(http_host_header('[abcd::ef98:0:7654:321]..:98', 1), qr/ 400 /,
-	'ipv6 literal w/ double dot (host header)');
-like(http_absolute_path('[ab..cd::ef98:0:7654:321]', 1), qr/ 400 /,
-	'ipv6 literal w/ double dot (absolute request)');
+is(hh('192.0.2.1'), '192.0.2.1', 'ip');
+is(rl('192.0.2.1'), '192.0.2.1', 'ip in request line');
 
+is(hh('192.0.2.1:80'), '192.0.2.1', 'ip');
+is(rl('192.0.2.1:80'), '192.0.2.1', 'ip:port in request line');
 
-like(http_host_header('[abcd::ef98:0:7654:321]..:98', 1), qr/ 400 /,
-	'ipv6 literal w/ double dot (host header)');
-like(http_absolute_path('[ab..cd::ef98:0:7654:321]', 1), qr/ 400 /,
-	'ipv6 literal w/ double dot (absolute request)');
+is(hh('[2001:db8::1]'), '[2001:db8::1]', 'ipv6');
+is(rl('[2001:db8::1]'), '[2001:db8::1]', 'ipv6 in request line');
 
+is(hh('[2001:db8::1]:80'), '[2001:db8::1]', 'ipv6:port');
+is(rl('[2001:db8::1]:80'), '[2001:db8::1]', 'ipv6:port in request line');
 
-# As per RFC 3986,
-# http://tools.ietf.org/html/rfc3986#section-3.2.2
+is(hh('[2001:DB8::1]'), '[2001:db8::1]', 'ipv6 with uppercase');
+is(rl('[2001:DB8::1]'), '[2001:db8::1]',
+	'ipv6 with uppercase in request line');
+
+is(hh('[2001:DB8::1]:80'), '[2001:db8::1]', 'ipv6:port with uppercase');
+is(rl('[2001:DB8::1]:80'), '[2001:db8::1]',
+	'ipv6:port with uppercase in request line');
+
+is(hh('[::ffff:192.0.2.1]'), '[::ffff:192.0.2.1]', 'ipv6 v4mapped');
+is(rl('[::ffff:192.0.2.1]'), '[::ffff:192.0.2.1]',
+	'ipv6 v4mapped in request line');
+
+is(hh('[::ffff:192.0.2.1]:80'), '[::ffff:192.0.2.1]', 'ipv6:port v4mapped ');
+is(rl('[::ffff:192.0.2.1]:80'), '[::ffff:192.0.2.1]',
+	'ipv6:port v4mapped in request line');
+
+# ipv6 with zoneid, RFC 6874
+
+is(hh('[2001:db8::1%25en1]'), '[2001:db8::1%25en1]', 'ipv6 zoneid');
+is(hh('[2001:db8::1%25en1]:80'), '[2001:db8::1%25en1]', 'ipv6:port zoneid');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
+
+is(rl('[2001:db8::1%25en1]'), '[2001:db8::1%25en1]',
+	'ipv6 zoneid in request line');
+is(rl('[2001:db8::1%25en1]:80'), '[2001:db8::1%25en1]',
+	'ipv6:port zoneid in request line');
+}
+
+# ipvfuture
+
+is(hh('[v0.1azAZ.!$&\'()*+,;=-._~:]'), '[v0.1azaz.!$&\'()*+,;=-._~:]',
+	'ipvfuture');
+is(rl('[v0.1azAZ.!$&\'()*+,;=-._~:]'), '[v0.1azaz.!$&\'()*+,;=-._~:]',
+	'ipvfuture in request line');
+
+is(hh('[v0.1azAZ.!$&\'()*+,;=-._~:]:80'), '[v0.1azaz.!$&\'()*+,;=-._~:]',
+	'ipvfuture:port');
+is(rl('[v0.1azAZ.!$&\'()*+,;=-._~:]:80'), '[v0.1azaz.!$&\'()*+,;=-._~:]',
+	'ipvfuture:port in request line');
+
+# various invalid cases:
 #
-# IP-literal    = "[" ( IPv6address / IPvFuture  ) "]"
-#
-# IPvFuture     = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" )
-#
-# sub-delims    = "!" / "$" / "&" / "'" / "(" / ")"
-#               / "*" / "+" / "," / ";" / "="
-#
-# unreserved    = ALPHA / DIGIT / "-" / "." / "_" / "~"
-#
+# example/com (only make sense in host header)
+# example\com
+# example..com
+# example.com:port:port
+# example.com:invalid_port
+# [ipv6/foo]
+# [ipvfuture/foo]
+# [ipv6..foo]
+# [ipvfuture..foo]
+# [ipv6 (no closing "]")
+# [ipvfuture (no closing "]")
 
-is(http_host_header(
-	'[v0123456789aBcDeF.!$&\'()*+,;=-._~AbCdEfGhIjKlMnOpQrStUvWxYz'
-	. '0123456789:]'),
-	'[v0123456789abcdef.!$&\'()*+,;=-._~abcdefghijklmnopqrstuvwxyz'
-	. '0123456789:]',
-	'IPvFuture all symbols (host header)');
+like(hh('example/com'), qr/ 400 /, 'host with slash');
 
-is(http_absolute_path(
-	'[v0123456789aBcDeF.!$&\'()*+,;=-._~AbCdEfGhIjKlMnOpQrStUvWxYz'
-	. '0123456789:]'),
-	'[v0123456789abcdef.!$&\'()*+,;=-._~abcdefghijklmnopqrstuvwxyz'
-	. '0123456789:]',
-	'IPvFuture all symbols (absolute request)');
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1')
+	or $^O eq 'MSWin32';
 
-is(http_host_header('123.40.56.78:9000:80'), '123.40.56.78',
-	'double port hack');
+like(hh('example\com'), qr/ 400 /, 'host with backslash');
 
-like(http_host_header("localhost\nHost: again", 1), qr/ 400 /, 'host repeat');
-like(http_host_header("localhost\x02", 1), qr/ 400 /, 'control');
+}
+
+like(rl('example\com'), qr/ 400 /, 'host with backslash in request line');
+
+like(hh('example..com'), qr/ 400 /, 'host with double dots');
+like(rl('example..com'), qr/ 400 /, 'host with double dots in request line');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
+
+like(hh('example.com:80:80'), qr/ 400 /, 'host with two ports');
+
+}
+
+like(rl('example.com:80:80'), qr/ 400 /,
+	'host with two ports in request line');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
+
+like(hh('example.com:foo'), qr/ 400 /, 'host with invalid port');
+
+}
+
+like(rl('example.com:foo'), qr/ 400 /,
+	'host with invalid port in request line');
+
+like(hh('[2001:db8::1/2]'), qr/ 400 /, 'ipv6 with slash');
+like(rl('[2001:db8::1/2]'), qr/ 400 /,
+	'ipv6 with slash in request line');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1')
+	or $^O eq 'MSWin32';
+
+like(hh('[2001:db8::1\2]'), qr/ 400 /, 'ipv6 with backslash');
+
+}
+
+like(rl('[2001:db8::1\2]'), qr/ 400 /, 'ipv6 with backslash in request line');
+
+like(hh('[2001:db8::1..2]'), qr/ 400 /, 'ipv6 with double dots');
+like(rl('[2001:db8::1..2]'), qr/ 400 /,
+	'ipv6 with double dots in request line');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
+
+like(hh('[2001:db8::1'), qr/ 400 /, 'ipv6 without closing bracket');
+
+}
+
+like(rl('[2001:db8::1'), qr/ 400 /,
+	'ipv6 without closing bracket in request line');
+
+like(hh('[v0.1/2]'), qr/ 400 /, 'ipvfuture with slash');
+like(rl('[v0.1/2]'), qr/ 400 /, 'ipvfuture with slash in request line');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1')
+	or $^O eq 'MSWin32';
+
+like(hh('[v0.1\2]'), qr/ 400 /, 'ipvfuture with backslash');
+
+}
+
+like(rl('[v0.1\2]'), qr/ 400 /, 'ipvfuture with backslash in request line');
+
+like(hh('[v0.1..2]'), qr/ 400 /, 'ipvfuture with double dots');
+like(rl('[v0.1..2]'), qr/ 400 /, 'ipvfuture with double dots in request line');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
+
+like(hh('[v0.1'), qr/ 400 /, 'ipvfuture without closing bracket');
+
+}
+
+like(rl('[v0.1'), qr/ 400 /,
+	'ipvfuture without closing bracket in request line');
+
+# control characters
+
+like(hh("example.com\x02"), qr/ 400 /, 'host with control chars');
+like(rl("example.com\x02"), qr/ 400 /,
+	'host with control chars in request line');
+
+# non-ascii characters
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
+
+like(hh("example.com\xff"), qr/ 400 /, 'host with non-ascii chars');
+
+}
+
+like(rl("example.com\xff"), qr/ 400 /,
+	'host with non-ascii chars in request line');
+
+# multiple host headers
+
+like(hh("localhost\nHost: again"), qr/ 400 /, 'duplicate host');
 
 ###############################################################################
 
-sub http_host_header {
-	my ($host, $all) = @_;
-	my ($r) = http(<<EOF);
+sub hh {
+	my ($host) = @_;
+	my $r = http(<<EOF);
 GET / HTTP/1.0
 Host: $host
 
 EOF
-	return ($all ? $r : http_content($r));
+	return ($r =~ m/ 200 /) ? http_content($r) : $r;
 }
 
-sub http_absolute_path {
-	my ($host, $all) = @_;
-	my ($r) = http(<<EOF);
+sub rl {
+	my ($host) = @_;
+	my $r = http(<<EOF);
 GET http://$host/ HTTP/1.0
-Host: localhost
 
 EOF
-	return ($all ? $r : http_content($r));
+	return ($r =~ m/ 200 /) ? http_content($r) : $r;
 }
 
 ###############################################################################
