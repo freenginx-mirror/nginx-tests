@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) Maxim Dounin
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -22,13 +23,17 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
-plan(skip_all => 'may not work, leaves coredump')
+plan(skip_all => 'may not work')
 	unless $ENV{TEST_NGINX_UNSAFE};
 
-my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool')->plan(2);
+my $t = Test::Nginx->new()
+	->has(qw/http proxy http_ssl/)
+	->has_daemon('openssl')
+	->has_daemon('softhsm2-util')
+	->has_daemon('pkcs11-tool');
+
+plan(skip_all => 'no engine:... keys')
+	unless $t->has_module('OpenSSL') and !$t->has_module('BoringSSL');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -86,8 +91,29 @@ EOF
 #
 # http://mailman.nginx.org/pipermail/nginx-devel/2014-October/006151.html
 #
-# Note that library paths may differ on different systems,
-# and may need to be adjusted.
+# Note that library paths are different on different systems.  We try
+# to detect some known ones.
+#
+# Still, detected libraries might not match OpenSSL library used when
+# building nginx, or the "openssl" tool in path, so everything will fail.
+# As such, this test is marked unsafe.
+
+# Libraries on various systems: FreeBSD, Alpine, Ubuntu
+
+my ($engine) = grep { -e $_ } qw!
+	/usr/local/lib/engines/pkcs11.so
+	/usr/lib/engines-3/pkcs11.so
+	/usr/lib/x86_64-linux-gnu/engines-3/pkcs11.so
+!;
+
+my ($softhsm) = grep { -e $_ } qw!
+	/usr/local/lib/softhsm/libsofthsm2.so
+	/usr/lib/softhsm/libsofthsm2.so
+	/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so
+!;
+
+plan(skip_all => 'no libp11 pkcs11 engine') unless $engine;
+plan(skip_all => 'no softhsm2') unless $softhsm;
 
 $t->write_file('openssl.conf', <<EOF);
 openssl_conf = openssl_def
@@ -100,8 +126,8 @@ pkcs11 = pkcs11_section
 
 [pkcs11_section]
 engine_id = pkcs11
-dynamic_path = /usr/local/lib/engines/pkcs11.so
-MODULE_PATH = /usr/local/lib/softhsm/libsofthsm2.so
+dynamic_path = $engine
+MODULE_PATH = $softhsm
 init = 1
 PIN = 1234
 
@@ -125,13 +151,17 @@ $ENV{SOFTHSM2_CONF} = "$d/softhsm2.conf";
 $ENV{OPENSSL_CONF} = "$d/openssl.conf";
 
 foreach my $name ('localhost') {
-	system('softhsm2-util --init-token --slot 0 --label NginxZero '
+	system('softhsm2-util --init-token --slot 0 --label token0 '
 		. '--pin 1234 --so-pin 1234 '
-		. ">>$d/openssl.out 2>&1");
+		. ">>$d/openssl.out 2>&1") == 0
+		or die "Can't initialize softhsm token: $!\n";
 
-	system('pkcs11-tool --module=/usr/local/lib/softhsm/libsofthsm2.so '
-		. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
-		. ">>$d/openssl.out 2>&1");
+	system('pkcs11-tool '
+		. "--module=$softhsm "
+		. '--token-label token0 --pin 1234 --login '
+		. '--keypairgen --id 0 --label key0 --key-type rsa:2048 '
+		. ">>$d/openssl.out 2>&1") == 0
+		or die "Can't generate pkcs11 keypair: $!\n";
 
 	system('openssl req -x509 -new '
 		. "-subj /CN=$name/ -out $d/$name.crt -text "
@@ -140,7 +170,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run();
+$t->run()->plan(2);
 
 $t->write_file('index.html', '');
 
