@@ -48,24 +48,24 @@ http {
         listen       127.0.0.1:8443 ssl;
         server_name  localhost;
 
-        ssl_certificate store:file:%%TESTDIR%%/localhost.crt;
-        ssl_certificate_key store:file:%%TESTDIR%%/localhost.key;
+        ssl_certificate store:file:///%%TESTDIR%%/localhost.crt;
+        ssl_certificate_key store:file:///%%TESTDIR%%/localhost.key;
     }
 
     server {
         listen       127.0.0.1:8443 ssl;
         server_name  crt_key;
 
-        ssl_certificate store:file:%%TESTDIR%%/localhost.crt_key;
-        ssl_certificate_key store:file:%%TESTDIR%%/localhost.crt_key;
+        ssl_certificate store:file:///%%TESTDIR%%/localhost.crt_key;
+        ssl_certificate_key store:file:///%%TESTDIR%%/localhost.crt_key;
     }
 
     server {
         listen       127.0.0.1:8443 ssl;
         server_name  key_crt;
 
-        ssl_certificate store:file:%%TESTDIR%%/localhost.key_crt;
-        ssl_certificate_key store:file:%%TESTDIR%%/localhost.key_crt;
+        ssl_certificate store:file:///%%TESTDIR%%/localhost.key_crt;
+        ssl_certificate_key store:file:///%%TESTDIR%%/localhost.key_crt;
     }
 
     server {
@@ -73,8 +73,8 @@ http {
         server_name  encrypted;
 
         ssl_password_file passwords;
-        ssl_certificate store:file:%%TESTDIR%%/encrypted.crt;
-        ssl_certificate_key store:file:%%TESTDIR%%/encrypted.key;
+        ssl_certificate store:file:///%%TESTDIR%%/encrypted.crt;
+        ssl_certificate_key store:file:///%%TESTDIR%%/encrypted.key;
     }
 
     server {
@@ -82,8 +82,8 @@ http {
         server_name  encrypted_crt_key;
 
         ssl_password_file passwords;
-        ssl_certificate store:file:%%TESTDIR%%/encrypted.crt_key;
-        ssl_certificate_key store:file:%%TESTDIR%%/encrypted.crt_key;
+        ssl_certificate store:file:///%%TESTDIR%%/encrypted.crt_key;
+        ssl_certificate_key store:file:///%%TESTDIR%%/encrypted.crt_key;
     }
 
     server {
@@ -91,16 +91,16 @@ http {
         server_name  encrypted_key_crt;
 
         ssl_password_file passwords;
-        ssl_certificate store:file:%%TESTDIR%%/encrypted.key_crt;
-        ssl_certificate_key store:file:%%TESTDIR%%/encrypted.key_crt;
+        ssl_certificate store:file:///%%TESTDIR%%/encrypted.key_crt;
+        ssl_certificate_key store:file:///%%TESTDIR%%/encrypted.key_crt;
     }
 
     server {
         listen       127.0.0.1:8443 ssl;
         server_name  dynamic no_password;
 
-        ssl_certificate store:file:%%TESTDIR%%/$ssl_server_name.crt;
-        ssl_certificate_key store:file:%%TESTDIR%%/$ssl_server_name.key;
+        ssl_certificate store:file:///%%TESTDIR%%/$ssl_server_name.crt;
+        ssl_certificate_key store:file:///%%TESTDIR%%/$ssl_server_name.key;
     }
 
     server {
@@ -108,8 +108,8 @@ http {
         server_name  password;
 
         ssl_password_file password;
-        ssl_certificate store:file:%%TESTDIR%%/$ssl_server_name.crt;
-        ssl_certificate_key store:file:%%TESTDIR%%/$ssl_server_name.key;
+        ssl_certificate store:file:///%%TESTDIR%%/$ssl_server_name.crt;
+        ssl_certificate_key store:file:///%%TESTDIR%%/$ssl_server_name.key;
     }
 
     server {
@@ -117,8 +117,8 @@ http {
         server_name  multiple;
 
         ssl_password_file passwords;
-        ssl_certificate store:file:%%TESTDIR%%/$ssl_server_name.crt;
-        ssl_certificate_key store:file:%%TESTDIR%%/$ssl_server_name.key;
+        ssl_certificate store:file:///%%TESTDIR%%/$ssl_server_name.crt;
+        ssl_certificate_key store:file:///%%TESTDIR%%/$ssl_server_name.key;
     }
 }
 
