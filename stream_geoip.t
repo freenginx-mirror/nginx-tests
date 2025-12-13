@@ -144,7 +144,7 @@ $data .= chr(5);
 $data .= pack_node(32);
 
 $t->write_file('org.dat', $data);
-$t->try_run('no inet6 support')->plan(20);
+$t->try_run('no geoip legacy')->plan(20);
 
 ###############################################################################
 
