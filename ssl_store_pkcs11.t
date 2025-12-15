@@ -125,7 +125,17 @@ EOF
 # pkcs11-module-load-behavior = early
 # pkcs11-module-quirks = no-operation-state
 #
-# No quirks are needed with pkcs11-provider 1.0+.
+# Further, there is a race between SoftHSM destructor and OpenSSL's atexit()
+# handler, which results in segmentation faults on process exit when using
+# unpatched SoftHSM 2.6.1 (latest version at the time of writing) with
+# pkcs11-provider:
+#
+# https://github.com/latchset/pkcs11-provider/issues/310
+# https://github.com/openssl/openssl/issues/22508
+# https://github.com/openssl/project/issues/1719
+# https://github.com/softhsm/SoftHSMv2/issues/780
+#
+# This can be resolved with the "no-deinit" quirk.
 
 # Libraries on various systems: FreeBSD, Alpine, Debian, Fedora
 
@@ -164,7 +174,7 @@ module = $provider
 pkcs11-module-path = $softhsm
 pkcs11-module-token-pin = 1234
 pkcs11-module-load-behavior = early
-pkcs11-module-quirks = no-operation-state
+pkcs11-module-quirks = no-operation-state no-deinit
 activate = 1
 
 [ req ]
