@@ -12,6 +12,8 @@ use warnings;
 use strict;
 
 use Test::More;
+
+use IO::Select;
 use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -235,22 +237,13 @@ EOF
 
 	$s = http($r, start => 1);
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
-
-		$client = $server->accept();
-
-		log2c("(new connection $client)");
-
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
+	if (!IO::Select->new($server)->can_read(5)) {
+		log2c("timeout");
 		return undef;
 	}
+
+	$client = $server->accept();
+	log2c("(new connection $client)");
 
 	$client->sysread(my $buf, 1024);
 	log2i($buf);

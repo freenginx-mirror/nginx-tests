@@ -715,16 +715,14 @@ sub grpc {
 			{ name => 'te', value => 'trailers', mode => 2 }]});
 
 		if (!$extra{reuse}) {
-			if (IO::Select->new($server)->can_read(5)) {
-				$client = $server->accept();
-
-			} else {
-				log_in("timeout");
+			if (!IO::Select->new($server)->can_read(5)) {
+				log2c("timeout");
 				# connection could be unexpectedly reused
 				goto reused if $client;
 				return undef;
 			}
 
+			$client = $server->accept();
 			log2c("(new connection $client)");
 			$n++;
 
