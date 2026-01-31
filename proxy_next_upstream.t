@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(8);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -50,6 +50,11 @@ http {
         server 127.0.0.1:8082 down;
     }
 
+    upstream u4 {
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
+    }
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -73,6 +78,12 @@ http {
         location /down {
             proxy_pass http://u3;
             proxy_next_upstream http_404;
+        }
+
+        location /nonext {
+            proxy_pass http://u4/500;
+            proxy_next_upstream http_500;
+            proxy_next_upstream_tries 1;
         }
     }
 
@@ -147,5 +158,18 @@ like(http_get('/all/rr'),
 # after all backends are tried with http_404
 
 like(http_get('/down/'), qr/Not Found/, 'all tried with down');
+
+# make sure backend is switched off with http_500
+# if switching to next upstream is not possible
+
+like(http_get('/nonext'), qr/500 Internal|SEE-THIS/, 'request nonext');
+like(http_get('/nonext'), qr/500 Internal|SEE-THIS/, 'request nonext second');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.5');
+
+like(http_get('/nonext'), qr/SEE-THIS/, 'down after nonext');
+
+}
 
 ###############################################################################
