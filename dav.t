@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http dav/)->plan(28);
+my $t = Test::Nginx->new()->has(qw/http dav/)->plan(31);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -180,6 +180,8 @@ EOF
 like($r, qr/204 No Content/, 'copy file overwrite');
 is(-s $t->testdir() . '/file.exist', 10, 'target file truncated');
 
+# tests in location with alias
+
 $r = http(<<EOF . '0123456789');
 PUT /i/alias HTTP/1.1
 Host: localhost
@@ -191,6 +193,50 @@ EOF
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'put alias');
 like($r, qr!Location: /i/alias\x0d?$!ms, 'location alias');
 is(-s $t->testdir() . '/alias', 10, 'put alias size');
+
+$r = http(<<EOF);
+COPY /i/file HTTP/1.1
+Host: localhost
+Connection: close
+Destination: /i/file.alias
+
+EOF
+
+like($r, qr/204 No Content/, 'copy alias');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.7');
+
+$r = http(<<EOF);
+COPY /i/file HTTP/1.1
+Host: localhost
+Connection: close
+Destination: /x/file.alias
+
+EOF
+
+like($r, qr/400 Bad Request/, 'copy alias outside');
+
+}
+
+TODO: {
+local $TODO = 'not yet', $t->todo_alerts()
+	unless $t->has_version('1.29.7');
+todo_skip 'leaves coredump', 1
+	unless $t->has_version('1.29.7')
+	or $ENV{TEST_NGINX_UNSAFE};
+
+$r = http(<<EOF);
+COPY /i/file HTTP/1.1
+Host: localhost
+Connection: close
+Destination: /x
+
+EOF
+
+like($r, qr/400 Bad Request/, 'copy alias too short');
+
+}
 
 # request methods with unsupported request body
 
